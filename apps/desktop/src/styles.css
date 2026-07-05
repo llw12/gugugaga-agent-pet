@@ -46,7 +46,7 @@ button {
 
 .petSprite {
   width: min(70vw, 286px);
-  aspect-ratio: 512 / 682;
+  aspect-ratio: 1 / 1;
   display: grid;
   place-items: center;
   background-color: transparent;

@@ -5,6 +5,7 @@
   "scripts": {
     "dev:desktop": "npm --prefix apps/desktop run dev",
     "build:desktop": "npm --prefix apps/desktop run build",
+    "check:alpha": "node scripts/check-alpha.mjs",
     "tauri:dev": "npm --prefix apps/desktop run tauri dev",
     "dev": "npm run dev:desktop"
   }
