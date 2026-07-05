@@ -47,9 +47,17 @@ button {
 .petSprite {
   width: min(70vw, 286px);
   aspect-ratio: 512 / 682;
+  display: grid;
+  place-items: center;
   background-color: transparent;
-  background-repeat: no-repeat;
   filter: drop-shadow(0 18px 18px rgb(16 24 36 / 0.26));
+}
+
+.petSpriteImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
   -webkit-user-drag: none;
 }
 

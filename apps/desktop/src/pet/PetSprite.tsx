@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { animationManifest } from "./animationManifest";
 import type { PetState } from "./petState";
 
@@ -20,19 +20,20 @@ export function PetSprite({ state, onComplete }: PetSpriteProps) {
     let lastFrameAt = performance.now();
     let completed = false;
     const frameMs = 1000 / config.fps;
+    const frameCount = config.frameUrls.length;
 
     const tick = (now: number) => {
       if (now - lastFrameAt >= frameMs) {
         lastFrameAt = now;
         setFrameIndex((current) => {
           const next = current + 1;
-          if (next < config.frames) return next;
+          if (next < frameCount) return next;
           if (config.loop) return 0;
           if (!completed) {
             completed = true;
             window.setTimeout(() => onComplete?.(config.next), 0);
           }
-          return config.frames - 1;
+          return Math.max(frameCount - 1, 0);
         });
       }
       rafId = requestAnimationFrame(tick);
@@ -42,14 +43,11 @@ export function PetSprite({ state, onComplete }: PetSpriteProps) {
     return () => cancelAnimationFrame(rafId);
   }, [config, onComplete]);
 
-  const style = useMemo(() => {
-    const position = config.frames <= 1 ? 0 : (frameIndex / (config.frames - 1)) * 100;
-    return {
-      backgroundImage: `url(${config.src})`,
-      backgroundPosition: `${position}% center`,
-      backgroundSize: `${config.frames * 100}% 100%`
-    };
-  }, [config, frameIndex]);
+  const currentFrame = config.frameUrls[Math.min(frameIndex, config.frameUrls.length - 1)];
 
-  return <div className="petSprite" style={style} aria-label={`Gugugaga ${config.label}`} />;
+  return (
+    <div className="petSprite" aria-label={`Gugugaga ${config.label}`}>
+      <img className="petSpriteImage" src={currentFrame} alt="" draggable={false} />
+    </div>
+  );
 }
