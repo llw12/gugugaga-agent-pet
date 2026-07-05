@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev:desktop": "npm --prefix apps/desktop run dev",
+    "dev:agent": "python -m uvicorn app.main:app --app-dir apps/agent-server --host 127.0.0.1 --port 8765",
     "build:desktop": "npm --prefix apps/desktop run build",
     "check:alpha": "node scripts/check-alpha.mjs",
     "tauri:dev": "npm --prefix apps/desktop run tauri dev",

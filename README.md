@@ -1,50 +1,120 @@
-# 咕咕嘎嘎 Agent 桌宠
+# Gugugaga Agent Pet
 
-咕咕嘎嘎 Agent 桌宠是一个 Windows 桌面桌宠项目，目标是逐步做成一个可爱的电脑管家入口。当前仓库先只实现桌宠前端壳，让角色可以透明置顶显示并播放本地 PNG 帧动画。
+Gugugaga Agent Pet is a Windows desktop pet project. The long-term goal is a small, friendly computer assistant, but the current implementation is intentionally narrow and local-first.
 
-## 当前阶段
+## Current Phase
 
-Phase 1：Tauri 2 + React + TypeScript 桌宠动画壳。
+Phase 2: Tauri + React desktop pet frontend connected to a local FastAPI + WebSocket mock backend.
 
-当前已包含：
+Implemented now:
 
-- Tauri 2 桌面窗口配置：无边框、透明背景、置顶。
-- React + TypeScript + Vite 前端。
-- idle、thinking、working、success、warning、sleeping 六个动画状态。
-- 每帧单独 PNG 渲染，使用 `img` + `object-fit: contain`，不再使用 sprite sheet。
-- 调试按钮，可打开状态切换面板。
+- Tauri 2 desktop window configuration: transparent, borderless, always on top.
+- React + TypeScript + Vite frontend.
+- Per-frame PNG animation for `idle`, `thinking`, `working`, `success`, `warning`, and `sleeping`.
+- Debug panel for manually switching pet animation state.
+- Chat panel that sends `user_message` events over WebSocket.
+- Local FastAPI mock backend with `GET /health` and `WebSocket /ws`.
+- Frontend pet state changes driven by backend `pet_state` events.
+- Offline UI: when the backend is not running, the chat panel shows `Agent 后端未连接`; the pet remains visible and falls back to `idle`.
 
-## 安装依赖
+Not implemented in Phase 2:
+
+- LLM integration
+- psutil system status tools
+- SQLite storage
+- shell command execution
+- tool whitelist or approval workflow
+- PyInstaller or Tauri sidecar packaging
+
+## Install
+
+Install frontend dependencies:
 
 ```powershell
 npm --prefix apps/desktop install
 ```
 
-如果要运行 Tauri 原生桌面窗口，还需要安装 Rust 和 Cargo。
+Install backend dependencies:
 
-## 启动
+```powershell
+python -m pip install -e apps/agent-server
+```
 
-开发模式仅启动前端页面：
+Running the native Tauri window also requires Rust and Cargo.
+
+## Start Backend
+
+Start the local mock Agent server:
+
+```powershell
+npm run dev:agent
+```
+
+Equivalent direct command:
+
+```powershell
+python -m uvicorn app.main:app --app-dir apps/agent-server --host 127.0.0.1 --port 8765
+```
+
+Health check:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/health
+```
+
+## Start Frontend
+
+Start the Vite frontend:
 
 ```powershell
 npm run dev:desktop
 ```
 
-构建前端：
+Open:
 
-```powershell
-npm --prefix apps/desktop run build
+```text
+http://127.0.0.1:1420/
 ```
 
-运行 Tauri 桌面窗口：
+Run the native Tauri shell:
 
 ```powershell
 npm --prefix apps/desktop run tauri dev
 ```
 
-## 素材目录
+## Build
 
-动画素材放在：
+```powershell
+npm --prefix apps/desktop run build
+```
+
+## Phase 2 WebSocket Flow
+
+Frontend sends:
+
+```json
+{
+  "type": "user_message",
+  "payload": {
+    "text": "hello"
+  }
+}
+```
+
+Backend mock replies in this order:
+
+```text
+pet_state thinking
+assistant_message "咕咕嘎嘎收到啦，我正在处理。"
+pet_state working
+assistant_message "这是 Phase 2 mock 回复，后续会接入电脑状态工具。"
+pet_state success
+final
+```
+
+## Pet Assets
+
+Animation assets live here:
 
 ```text
 apps/desktop/src/assets/pet/
@@ -56,37 +126,25 @@ apps/desktop/src/assets/pet/
   sleeping/000.png 001.png 002.png 003.png
 ```
 
-命名规范：
+Rules:
 
-- 每个状态一个文件夹。
-- 文件名使用三位数字递增：`000.png`、`001.png`。
-- 当前单帧画布按正方形处理，建议保持 `1254x1254`。
-- 素材必须是真透明 PNG，即透明区域需要真实 alpha 通道。
-- 不要使用棋盘格假透明背景；棋盘格会被当作真实像素显示在桌面上。
+- Each animation state has its own folder.
+- Frame names use three-digit ascending numbers such as `000.png`, `001.png`.
+- Current frames are treated as square canvases, recommended size `1254x1254`.
+- Assets must be true transparent PNGs with real alpha pixels.
+- Do not use checkerboard fake transparency; it will render as real pixels on the desktop.
 
-可以运行透明通道检查：
+Check alpha transparency:
 
 ```powershell
-node scripts/check-alpha.mjs
+npm run check:alpha
 ```
 
-## 当前未实现
+## Next Phase
 
-以下能力还没有实现，也不应该在 Phase 1 中接入：
-
-- FastAPI Agent 后端
-- WebSocket 协议通信
-- psutil 系统状态读取
-- SQLite 记忆或审计日志
-- 工具白名单和命令执行
-- LLM 或 OpenAI-compatible provider
-- PyInstaller、Tauri sidecar 打包
-
-## 下一阶段计划
-
-- 接入本地 FastAPI + WebSocket mock 后端。
-- 增加聊天面板、电脑状态面板和确认弹窗。
-- 实现安全工具白名单与人工确认流程。
-- 增加 psutil 系统状态读取。
-- 增加 SQLite 审计日志。
-- 规划 Tauri sidecar 与 PyInstaller 打包流程。
+- Add real system status endpoints with psutil.
+- Add status panel and confirmation dialog.
+- Add safe tool registry and command whitelist.
+- Add SQLite audit logs.
+- Add optional LLM provider only after tool permission boundaries exist.
+- Plan PyInstaller sidecar packaging for Tauri.
