@@ -1,6 +1,6 @@
 [project]
 name = "gugugaga-agent-server"
-version = "0.3.0"
+version = "0.4.0"
 description = "Phase 3 FastAPI and WebSocket backend with read-only computer status tools"
 requires-python = ">=3.10"
 dependencies = [

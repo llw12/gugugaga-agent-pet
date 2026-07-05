@@ -22,12 +22,13 @@ export function ConfirmDialog({ request, onDecision }: ConfirmDialogProps) {
         </dl>
         <p className="confirmSummary">{request.summary}</p>
         <p className="confirmDetail">{request.detail}</p>
+        <p className="confirmDetail">当前版本只记录确认结果，不会执行风险工具。</p>
         <div className="dialogActions">
           <button className="secondaryButton" type="button" onClick={() => onDecision(false)}>
             取消
           </button>
           <button className="dangerButton" type="button" onClick={() => onDecision(true)}>
-            确认
+            记录确认
           </button>
         </div>
       </section>

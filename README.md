@@ -30,7 +30,9 @@ Safety framework skeleton prepared:
 - Tool execution records `success`, `failed`, and `rejected` audit entries.
 - Unknown tools are rejected and audited instead of surfacing as raw server errors.
 - WebSocket supports `approval_required` and `approval_result` for a simulated medium-risk request.
+- Approval requests are tracked in an in-memory pending map with request id, expiry, and handled-state validation.
 - The frontend includes a confirmation dialog skeleton for approval events.
+- Phase 5 shell whitelist files are present as configuration placeholders only. They are not wired to any execution path.
 
 Not implemented in Phase 4:
 
@@ -102,7 +104,7 @@ npm --prefix apps/desktop run tauri dev
 npm --prefix apps/desktop run build
 ```
 
-## Phase 3 WebSocket Flow
+## Phase 4 WebSocket Flow
 
 Frontend sends:
 
@@ -126,9 +128,16 @@ pet_state success
 final
 ```
 
-For status questions, the `working` step calls only read-only psutil APIs through the safe tool registry and returns a summary of CPU, memory, disk, and top processes. For normal chat, the backend returns a Phase 3 mock hint asking the user to try a computer status question.
+For status questions, the `working` step calls only read-only psutil APIs through the safe tool registry and returns a summary of CPU, memory, disk, and top processes. For normal chat, the backend returns a mock hint asking the user to try a computer status question or the approval demo.
 
 For confirmation testing, send a chat message containing `确认`, `approval`, or `medium`. The backend sends `approval_required` for a simulated `mock.medium_approval` tool. The frontend shows a confirmation dialog and sends `approval_result`, but the backend only records the result and does not execute any medium-risk tool.
+
+Approval results are validated before being accepted:
+
+- unknown request ids are rejected and audited
+- expired request ids are rejected and audited
+- already handled request ids are rejected and audited
+- accepted results are audited with `executed: false`
 
 ## HTTP Status APIs
 
@@ -154,6 +163,16 @@ The current backend only registers two read-only tools:
 - `process.top` with `low` risk
 
 The registry also contains `mock.medium_approval` only to demonstrate approval UI. The permission layer refuses `medium`, `high`, and `blocked` tools for now. There is still no LLM integration, arbitrary shell execution, file deletion, process killing, registry editing, payment flow, password input, or UI automation.
+
+## Phase 5 Whitelist Placeholder
+
+The repository includes a placeholder whitelist configuration at:
+
+```text
+apps/agent-server/config/commands.example.json
+```
+
+This file documents the future shape of whitelisted commands. The backend does not load it or execute anything from it yet. There is still no shell execution path in the application.
 
 ## Pet Assets
 
@@ -185,7 +204,7 @@ npm run check:alpha
 
 ## Next Phase
 
-- Add real approval state management.
-- Add command whitelist only after approval flow exists.
+- Persist approval state if needed beyond in-memory demo sessions.
+- Add command whitelist execution only after approval flow and tests exist.
 - Add optional LLM provider only after tool permission boundaries exist.
 - Plan PyInstaller sidecar packaging for Tauri.

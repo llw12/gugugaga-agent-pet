@@ -23,7 +23,7 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [approvalRequest, setApprovalRequest] = useState<ApprovalRequest | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "phase-3-ready", role: "system", text: "Phase 3 mock 后端接入中。" }
+    { id: "phase-4-ready", role: "system", text: "Phase 4 安全确认骨架接入中。" }
   ]);
 
   const handleAnimationComplete = useCallback((next?: PetState) => {
