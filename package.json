@@ -1,0 +1,11 @@
+{
+  "name": "gugugaga-agent-pet",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:desktop": "npm --prefix apps/desktop run dev",
+    "build:desktop": "npm --prefix apps/desktop run build",
+    "tauri:dev": "npm --prefix apps/desktop run tauri dev",
+    "dev": "npm run dev:desktop"
+  }
+}
