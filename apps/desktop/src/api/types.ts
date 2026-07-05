@@ -8,6 +8,34 @@ export interface ChatMessage {
   text: string;
 }
 
+export interface SystemOverview {
+  cpu_percent: number;
+  memory: {
+    total: number;
+    available: number;
+    used: number;
+    percent: number;
+  };
+  disk: {
+    path: string;
+    total: number;
+    used: number;
+    free: number;
+    percent: number;
+  };
+}
+
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  cpu_percent: number;
+  memory_percent: number;
+}
+
+export interface ProcessTopResponse {
+  processes: ProcessInfo[];
+}
+
 export type ClientEvent = {
   type: "user_message";
   payload: {

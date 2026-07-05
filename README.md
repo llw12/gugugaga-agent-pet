@@ -4,7 +4,7 @@ Gugugaga Agent Pet is a Windows desktop pet project. The long-term goal is a sma
 
 ## Current Phase
 
-Phase 2: Tauri + React desktop pet frontend connected to a local FastAPI + WebSocket mock backend.
+Phase 3: Tauri + React desktop pet frontend connected to a local FastAPI backend with read-only computer status tools.
 
 Implemented now:
 
@@ -14,13 +14,15 @@ Implemented now:
 - Debug panel for manually switching pet animation state.
 - Chat panel that sends `user_message` events over WebSocket.
 - Local FastAPI mock backend with `GET /health` and `WebSocket /ws`.
+- Read-only system status endpoints: `GET /api/system/overview` and `GET /api/process/top`.
+- Status panel with manual refresh.
+- Rule-based mock agent: when the message contains `电脑状态`, `卡`, `CPU`, `内存`, or `磁盘`, the backend reads system overview and top processes, then returns a short summary.
 - Frontend pet state changes driven by backend `pet_state` events.
 - Offline UI: when the backend is not running, the chat panel shows `Agent 后端未连接`; the pet remains visible and falls back to `idle`.
 
-Not implemented in Phase 2:
+Not implemented in Phase 3:
 
 - LLM integration
-- psutil system status tools
 - SQLite storage
 - shell command execution
 - tool whitelist or approval workflow
@@ -112,6 +114,24 @@ pet_state success
 final
 ```
 
+For status questions, the `working` step calls only read-only psutil APIs and returns a summary of CPU, memory, disk, and top processes.
+
+## HTTP Status APIs
+
+System overview:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/api/system/overview
+```
+
+Top processes:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/api/process/top
+```
+
+These APIs are read-only. They do not execute shell commands, delete files, kill processes, write registry keys, or modify system state.
+
 ## Pet Assets
 
 Animation assets live here:
@@ -142,8 +162,7 @@ npm run check:alpha
 
 ## Next Phase
 
-- Add real system status endpoints with psutil.
-- Add status panel and confirmation dialog.
+- Add confirmation dialog.
 - Add safe tool registry and command whitelist.
 - Add SQLite audit logs.
 - Add optional LLM provider only after tool permission boundaries exist.
