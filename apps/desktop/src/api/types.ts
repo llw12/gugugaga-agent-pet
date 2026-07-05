@@ -41,7 +41,22 @@ export type ClientEvent = {
   payload: {
     text: string;
   };
+} | {
+  type: "approval_result";
+  payload: {
+    request_id: string;
+    approved: boolean;
+  };
 };
+
+export interface ApprovalRequest {
+  request_id: string;
+  title: string;
+  risk_level: "safe" | "low" | "medium" | "high" | "blocked" | string;
+  tool: string;
+  summary: string;
+  detail: string;
+}
 
 export type ServerEvent =
   | {
@@ -55,6 +70,10 @@ export type ServerEvent =
       payload: {
         text: string;
       };
+    }
+  | {
+      type: "approval_required";
+      payload: ApprovalRequest;
     }
   | {
       type: "final";

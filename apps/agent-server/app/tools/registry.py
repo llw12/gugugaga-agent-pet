@@ -6,8 +6,13 @@ from typing import Any, Callable
 import psutil
 
 from app.security.permissions import RiskLevel, ensure_allowed
+from app.security.audit_log import log_event, log_tool_call
 
 ToolHandler = Callable[[], Any]
+
+
+class ToolNotFound(RuntimeError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -92,10 +97,38 @@ TOOLS: dict[str, ToolDefinition] = {
         risk_level=RiskLevel.LOW,
         handler=get_top_processes,
     ),
+    "mock.medium_approval": ToolDefinition(
+        name="mock.medium_approval",
+        description="Demonstrate an approval-required medium risk tool. It must not execute in Phase 4.",
+        risk_level=RiskLevel.MEDIUM,
+        handler=lambda: {"status": "not_executable"},
+    ),
 }
 
 
 def execute_tool(name: str) -> Any:
-    tool = TOOLS[name]
-    ensure_allowed(tool.risk_level)
-    return tool.handler()
+    tool = TOOLS.get(name)
+    if tool is None:
+        detail = {"tool": name, "reason": "unknown tool"}
+        log_event("tool_rejected", detail)
+        log_tool_call(name, RiskLevel.BLOCKED.value, "rejected", detail)
+        raise ToolNotFound(f"unknown tool: {name}")
+
+    try:
+        ensure_allowed(tool.risk_level)
+    except Exception as error:
+        detail = {"tool": name, "reason": str(error)}
+        log_event("tool_rejected", detail)
+        log_tool_call(name, tool.risk_level.value, "rejected", detail)
+        raise
+
+    try:
+        result = tool.handler()
+    except Exception as error:
+        detail = {"tool": name, "error": type(error).__name__, "message": str(error)}
+        log_event("tool_failed", detail)
+        log_tool_call(name, tool.risk_level.value, "failed", detail)
+        raise
+
+    log_tool_call(name, tool.risk_level.value, "success", {"tool": name})
+    return result

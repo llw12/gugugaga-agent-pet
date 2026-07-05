@@ -24,7 +24,7 @@ export function ChatPanel({ connected, messages, onSend, onClose }: ChatPanelPro
     <section className="chatPanel" aria-label="Agent chat">
       <header className="chatHeader">
         <div>
-          <strong>Phase 2 Chat</strong>
+          <strong>Phase 4 Chat</strong>
           <span className={connected ? "connectionBadge connectionOnline" : "connectionBadge"}>
             {connected ? "connected" : "Agent 后端未连接"}
           </span>
@@ -35,7 +35,7 @@ export function ChatPanel({ connected, messages, onSend, onClose }: ChatPanelPro
       </header>
 
       <div className="messageList">
-        {messages.length === 0 && <p className="emptyChat">输入一句话，测试 Phase 2 mock WebSocket。</p>}
+        {messages.length === 0 && <p className="emptyChat">输入一句话，测试 Phase 4 WebSocket 和安全确认骨架。</p>}
         {messages.map((message) => (
           <div className={`chatBubble chatBubble-${message.role}`} key={message.id}>
             {message.text}

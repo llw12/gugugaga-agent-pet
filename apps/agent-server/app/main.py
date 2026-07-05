@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.security.audit_log import log_event
 from app.tools.registry import execute_tool
 
 app = FastAPI(title="Gugugaga Agent Mock Server", version="0.3.0")
@@ -42,6 +43,11 @@ def should_query_system(text: str) -> bool:
     return any(keyword in normalized for keyword in ["电脑状态", "卡", "cpu", "内存", "磁盘"])
 
 
+def should_request_approval(text: str) -> bool:
+    normalized = text.lower()
+    return any(keyword in normalized for keyword in ["确认", "approval", "medium"])
+
+
 def build_system_summary(overview: dict[str, Any], processes: list[dict[str, Any]]) -> str:
     memory = overview["memory"]
     disk = overview["disk"]
@@ -59,8 +65,27 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     try:
         while True:
             message = await websocket.receive_json()
-            if message.get("type") != "user_message":
-                await send_event(websocket, "assistant_message", {"text": "Phase 2 mock 只处理 user_message。"})
+            message_type = message.get("type")
+            if message_type == "approval_result":
+                payload = message.get("payload", {})
+                approved = bool(payload.get("approved"))
+                request_id = str(payload.get("request_id", ""))
+                await asyncio.to_thread(
+                    log_event,
+                    "approval_result",
+                    {"request_id": request_id, "approved": approved, "executed": False},
+                )
+                await send_event(websocket, "pet_state", {"state": "idle"})
+                await send_event(
+                    websocket,
+                    "assistant_message",
+                    {"text": "已记录确认结果。Phase 4 当前不会执行 medium/high/blocked 工具。"},
+                )
+                await send_event(websocket, "final", {"text": "审批演示流程结束，未执行任何风险工具。"})
+                continue
+
+            if message_type != "user_message":
+                await send_event(websocket, "assistant_message", {"text": "Phase 4 mock 只处理 user_message 和 approval_result。"})
                 continue
 
             text = str(message.get("payload", {}).get("text", ""))
@@ -71,7 +96,29 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             await send_event(websocket, "pet_state", {"state": "working"})
             await asyncio.sleep(0.45)
 
-            if should_query_system(text):
+            if should_request_approval(text):
+                request_id = "mock_medium_approval"
+                await asyncio.to_thread(
+                    log_event,
+                    "approval_required",
+                    {"request_id": request_id, "tool": "mock.medium_approval", "risk_level": "medium"},
+                )
+                await send_event(websocket, "pet_state", {"state": "warning"})
+                await send_event(
+                    websocket,
+                    "approval_required",
+                    {
+                        "request_id": request_id,
+                        "title": "需要确认",
+                        "risk_level": "medium",
+                        "tool": "mock.medium_approval",
+                        "summary": "这是 Phase 4 的 medium 风险工具审批演示。",
+                        "detail": "无论你点击确认还是取消，当前阶段都只记录审计日志，不会执行任何 medium/high/blocked 工具。",
+                    },
+                )
+                await send_event(websocket, "assistant_message", {"text": "我发起了一个模拟确认请求，但不会执行风险工具。"})
+                continue
+            elif should_query_system(text):
                 overview, processes = await asyncio.gather(
                     asyncio.to_thread(execute_tool, "system.get_overview"),
                     asyncio.to_thread(execute_tool, "process.top"),

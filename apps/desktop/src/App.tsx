@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, Bug, GripHorizontal, MessageCircle, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { ChatMessage, ServerEvent } from "./api/types";
+import type { ApprovalRequest, ChatMessage, ServerEvent } from "./api/types";
 import { AgentWsClient } from "./api/wsClient";
 import { ChatPanel } from "./components/ChatPanel";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { DebugPanel } from "./components/DebugPanel";
 import { StatusPanel } from "./components/StatusPanel";
 import { PetSprite } from "./pet/PetSprite";
@@ -20,6 +21,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [approvalRequest, setApprovalRequest] = useState<ApprovalRequest | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "phase-3-ready", role: "system", text: "Phase 3 mock 后端接入中。" }
   ]);
@@ -56,6 +58,13 @@ export default function App() {
         setChatOpen(true);
         return;
       }
+      if (event.type === "approval_required") {
+        setApprovalRequest(event.payload);
+        setPetState("warning");
+        setChatOpen(true);
+        appendMessage("system", `收到确认请求：${event.payload.summary}`);
+        return;
+      }
       if (event.type === "final" && event.payload?.text) {
         appendMessage("system", event.payload.text);
       }
@@ -78,6 +87,19 @@ export default function App() {
       setPetState("idle");
       appendMessage("system", "Agent 后端未连接");
     }
+  };
+
+  const decideApproval = (approved: boolean) => {
+    if (!approvalRequest) return;
+    const sent = wsClient.send({
+      type: "approval_result",
+      payload: { request_id: approvalRequest.request_id, approved }
+    });
+    appendMessage("system", approved ? "已发送确认结果：同意。" : "已发送确认结果：取消。");
+    if (!sent) {
+      appendMessage("system", "Agent 后端未连接，确认结果未发送。");
+    }
+    setApprovalRequest(null);
   };
 
   return (
@@ -126,6 +148,7 @@ export default function App() {
       {chatOpen && <ChatPanel connected={connected} messages={messages} onSend={sendMessage} onClose={() => setChatOpen(false)} />}
       {statusOpen && <StatusPanel onClose={() => setStatusOpen(false)} />}
       {debugOpen && <DebugPanel current={petState} onChange={setPetState} />}
+      {approvalRequest && <ConfirmDialog request={approvalRequest} onDecision={decideApproval} />}
     </main>
   );
 }

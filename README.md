@@ -4,7 +4,7 @@ Gugugaga Agent Pet is a Windows desktop pet project. The long-term goal is a sma
 
 ## Current Phase
 
-Phase 3: Tauri + React desktop pet frontend connected to a local FastAPI backend with read-only computer status tools.
+Phase 4: Tauri + React desktop pet frontend connected to a local FastAPI backend with read-only computer status tools, audit logging, and approval dialog skeletons.
 
 Implemented now:
 
@@ -17,23 +17,27 @@ Implemented now:
 - Read-only system status endpoints: `GET /api/system/overview` and `GET /api/process/top`.
 - Status panel with manual refresh.
 - Rule-based mock agent: when the message contains `电脑状态`, `卡`, `CPU`, `内存`, or `磁盘`, the backend reads system overview and top processes, then returns a short summary.
+- Confirmation dialog skeleton for `approval_required` events.
 - Frontend pet state changes driven by backend `pet_state` events.
 - Offline UI: when the backend is not running, the chat panel shows `Agent 后端未连接`; the pet remains visible and falls back to `idle`.
 
-Phase 4 safety framework skeleton prepared:
+Safety framework skeleton prepared:
 
 - Risk levels: `safe`, `low`, `medium`, `high`, `blocked`.
 - Read-only tool registry with only `system.get_overview` and `process.top`.
 - Permission gate executes only `safe` and `low` tools for now.
 - SQLite schema bootstrap for audit logs, tool calls, and settings.
-- Audit log helpers are present, but not wired to any dangerous operation.
+- Tool execution records `success`, `failed`, and `rejected` audit entries.
+- Unknown tools are rejected and audited instead of surfacing as raw server errors.
+- WebSocket supports `approval_required` and `approval_result` for a simulated medium-risk request.
+- The frontend includes a confirmation dialog skeleton for approval events.
 
-Not implemented in Phase 3:
+Not implemented in Phase 4:
 
 - LLM integration
 - shell command execution
 - medium/high/blocked tool execution
-- approval workflow
+- real approval workflow that executes tools after confirmation
 - PyInstaller or Tauri sidecar packaging
 
 ## Install
@@ -124,6 +128,8 @@ final
 
 For status questions, the `working` step calls only read-only psutil APIs through the safe tool registry and returns a summary of CPU, memory, disk, and top processes. For normal chat, the backend returns a Phase 3 mock hint asking the user to try a computer status question.
 
+For confirmation testing, send a chat message containing `确认`, `approval`, or `medium`. The backend sends `approval_required` for a simulated `mock.medium_approval` tool. The frontend shows a confirmation dialog and sends `approval_result`, but the backend only records the result and does not execute any medium-risk tool.
+
 ## HTTP Status APIs
 
 System overview:
@@ -147,7 +153,7 @@ The current backend only registers two read-only tools:
 - `system.get_overview` with `safe` risk
 - `process.top` with `low` risk
 
-The permission layer refuses `medium`, `high`, and `blocked` tools for now. There is still no LLM integration, arbitrary shell execution, file deletion, process killing, registry editing, payment flow, password input, or UI automation.
+The registry also contains `mock.medium_approval` only to demonstrate approval UI. The permission layer refuses `medium`, `high`, and `blocked` tools for now. There is still no LLM integration, arbitrary shell execution, file deletion, process killing, registry editing, payment flow, password input, or UI automation.
 
 ## Pet Assets
 
@@ -179,8 +185,7 @@ npm run check:alpha
 
 ## Next Phase
 
-- Add confirmation dialog.
-- Wire audit logging into tool execution.
+- Add real approval state management.
 - Add command whitelist only after approval flow exists.
 - Add optional LLM provider only after tool permission boundaries exist.
 - Plan PyInstaller sidecar packaging for Tauri.
