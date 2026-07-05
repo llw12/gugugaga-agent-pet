@@ -20,12 +20,20 @@ Implemented now:
 - Frontend pet state changes driven by backend `pet_state` events.
 - Offline UI: when the backend is not running, the chat panel shows `Agent 后端未连接`; the pet remains visible and falls back to `idle`.
 
+Phase 4 safety framework skeleton prepared:
+
+- Risk levels: `safe`, `low`, `medium`, `high`, `blocked`.
+- Read-only tool registry with only `system.get_overview` and `process.top`.
+- Permission gate executes only `safe` and `low` tools for now.
+- SQLite schema bootstrap for audit logs, tool calls, and settings.
+- Audit log helpers are present, but not wired to any dangerous operation.
+
 Not implemented in Phase 3:
 
 - LLM integration
-- SQLite storage
 - shell command execution
-- tool whitelist or approval workflow
+- medium/high/blocked tool execution
+- approval workflow
 - PyInstaller or Tauri sidecar packaging
 
 ## Install
@@ -90,7 +98,7 @@ npm --prefix apps/desktop run tauri dev
 npm --prefix apps/desktop run build
 ```
 
-## Phase 2 WebSocket Flow
+## Phase 3 WebSocket Flow
 
 Frontend sends:
 
@@ -109,12 +117,12 @@ Backend mock replies in this order:
 pet_state thinking
 assistant_message "咕咕嘎嘎收到啦，我正在处理。"
 pet_state working
-assistant_message "这是 Phase 2 mock 回复，后续会接入电脑状态工具。"
+assistant_message "电脑状态摘要：CPU ...，内存 ...，磁盘 ...。当前资源占用靠前的进程有：..."
 pet_state success
 final
 ```
 
-For status questions, the `working` step calls only read-only psutil APIs and returns a summary of CPU, memory, disk, and top processes.
+For status questions, the `working` step calls only read-only psutil APIs through the safe tool registry and returns a summary of CPU, memory, disk, and top processes. For normal chat, the backend returns a Phase 3 mock hint asking the user to try a computer status question.
 
 ## HTTP Status APIs
 
@@ -131,6 +139,15 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/api/process/top
 ```
 
 These APIs are read-only. They do not execute shell commands, delete files, kill processes, write registry keys, or modify system state.
+
+## Safety Rules
+
+The current backend only registers two read-only tools:
+
+- `system.get_overview` with `safe` risk
+- `process.top` with `low` risk
+
+The permission layer refuses `medium`, `high`, and `blocked` tools for now. There is still no LLM integration, arbitrary shell execution, file deletion, process killing, registry editing, payment flow, password input, or UI automation.
 
 ## Pet Assets
 
@@ -163,7 +180,7 @@ npm run check:alpha
 ## Next Phase
 
 - Add confirmation dialog.
-- Add safe tool registry and command whitelist.
-- Add SQLite audit logs.
+- Wire audit logging into tool execution.
+- Add command whitelist only after approval flow exists.
 - Add optional LLM provider only after tool permission boundaries exist.
 - Plan PyInstaller sidecar packaging for Tauri.

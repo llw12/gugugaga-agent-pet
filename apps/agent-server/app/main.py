@@ -1,10 +1,10 @@
 import asyncio
-import os
 from typing import Any
 
-import psutil
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.tools.registry import execute_tool
 
 app = FastAPI(title="Gugugaga Agent Mock Server", version="0.3.0")
 
@@ -22,63 +22,15 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "phase": "3"}
 
 
-def get_disk_path() -> str:
-    if os.name == "nt" and os.path.exists("C:\\"):
-        return "C:\\"
-    return "/"
-
-
-def get_system_overview() -> dict[str, Any]:
-    memory = psutil.virtual_memory()
-    disk_path = get_disk_path()
-    disk = psutil.disk_usage(disk_path)
-    return {
-        "cpu_percent": psutil.cpu_percent(interval=0.1),
-        "memory": {
-            "total": memory.total,
-            "available": memory.available,
-            "used": memory.used,
-            "percent": memory.percent,
-        },
-        "disk": {
-            "path": disk_path,
-            "total": disk.total,
-            "used": disk.used,
-            "free": disk.free,
-            "percent": disk.percent,
-        },
-    }
-
-
-def get_top_processes(limit: int = 10) -> list[dict[str, Any]]:
-    processes: list[dict[str, Any]] = []
-    for process in psutil.process_iter(["pid", "name", "memory_percent"]):
-        try:
-            cpu_percent = process.cpu_percent(interval=None)
-            info = process.info
-            processes.append(
-                {
-                    "pid": info.get("pid", process.pid),
-                    "name": info.get("name") or "unknown",
-                    "cpu_percent": round(float(cpu_percent), 1),
-                    "memory_percent": round(float(info.get("memory_percent") or 0), 2),
-                }
-            )
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess):
-            continue
-
-    processes.sort(key=lambda item: (item["cpu_percent"], item["memory_percent"]), reverse=True)
-    return processes[:limit]
-
-
 @app.get("/api/system/overview")
 async def system_overview() -> dict[str, Any]:
-    return get_system_overview()
+    return await asyncio.to_thread(execute_tool, "system.get_overview")
 
 
 @app.get("/api/process/top")
 async def process_top() -> dict[str, list[dict[str, Any]]]:
-    return {"processes": get_top_processes()}
+    processes = await asyncio.to_thread(execute_tool, "process.top")
+    return {"processes": processes}
 
 
 async def send_event(websocket: WebSocket, event_type: str, payload: dict[str, Any] | None = None) -> None:
@@ -120,8 +72,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             await asyncio.sleep(0.45)
 
             if should_query_system(text):
-                overview = get_system_overview()
-                processes = get_top_processes()
+                overview, processes = await asyncio.gather(
+                    asyncio.to_thread(execute_tool, "system.get_overview"),
+                    asyncio.to_thread(execute_tool, "process.top"),
+                )
                 await send_event(websocket, "assistant_message", {"text": build_system_summary(overview, processes)})
             else:
                 await send_event(

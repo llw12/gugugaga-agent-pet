@@ -17,7 +17,7 @@ export default function App() {
   const wsClient = useMemo(() => new AgentWsClient(), []);
   const [petState, setPetState] = useState<PetState>("idle");
   const [debugOpen, setDebugOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([

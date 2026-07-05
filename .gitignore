@@ -6,6 +6,7 @@ target/
 .env.*
 !.env.example
 *.log
+*.sqlite3
 apps/desktop/src-tauri/gen/
 __pycache__/
 *.py[cod]

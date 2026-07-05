@@ -1,7 +1,7 @@
 [project]
 name = "gugugaga-agent-server"
 version = "0.3.0"
-description = "Phase 2 mock FastAPI and WebSocket backend for Gugugaga desktop pet"
+description = "Phase 3 FastAPI and WebSocket backend with read-only computer status tools"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.115.0",
@@ -12,3 +12,7 @@ dependencies = [
 [tool.uvicorn]
 host = "127.0.0.1"
 port = 8765
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
