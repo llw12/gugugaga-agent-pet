@@ -72,8 +72,7 @@ def test_whitelisted_command_executes(command_config_dir):
 
 
 def test_sensitive_env_vars_are_not_visible_to_child_process(command_config_dir, monkeypatch):
-    monkeypatch.setenv("GUGUGAGA_TEST_SECRET", "secret-value")
-    monkeypatch.setenv("GUGUGAGA_TEST_TOKEN", "token-value")
+    monkeypatch.setenv("GUGUGAGA_SECRET_TOKEN", "secret-token-value")
     write_local_commands(
         command_config_dir,
         {
@@ -83,8 +82,7 @@ def test_sensitive_env_vars_are_not_visible_to_child_process(command_config_dir,
                     "-c",
                     (
                         "import os; "
-                        "print(os.getenv('GUGUGAGA_TEST_SECRET')); "
-                        "print(os.getenv('GUGUGAGA_TEST_TOKEN'))"
+                        "print(os.getenv('GUGUGAGA_SECRET_TOKEN'))"
                     ),
                 ],
                 "cwd": None,
@@ -97,8 +95,32 @@ def test_sensitive_env_vars_are_not_visible_to_child_process(command_config_dir,
     result = execute_tool("command.env_probe")
 
     assert result["returncode"] == 0
-    assert result["stdout"].splitlines() == ["None", "None"]
+    assert result["stdout"].splitlines() == ["None"]
     assert fetch_tool_call_status("command.env_probe") == "success"
+
+
+def test_build_command_env_preserves_lookup_vars_and_filters_sensitive_values():
+    command_env = command_whitelist.build_command_env(
+        {
+            "PATH": "bin-path",
+            "PATHEXT": ".EXE",
+            "SystemRoot": "C:\\Windows",
+            "WINDIR": "C:\\Windows",
+            "TEMP": "C:\\Temp",
+            "TMP": "C:\\Tmp",
+            "GUGUGAGA_SECRET_TOKEN": "secret-token-value",
+            "PLAIN_VALUE": "not-needed",
+        }
+    )
+
+    assert command_env["PATH"] == "bin-path"
+    assert command_env["PATHEXT"] == ".EXE"
+    assert command_env["SystemRoot"] == "C:\\Windows"
+    assert command_env["WINDIR"] == "C:\\Windows"
+    assert command_env["TEMP"] == "C:\\Temp"
+    assert command_env["TMP"] == "C:\\Tmp"
+    assert "GUGUGAGA_SECRET_TOKEN" not in command_env
+    assert "PLAIN_VALUE" not in command_env
 
 
 def test_path_is_preserved_so_executable_lookup_still_works(command_config_dir):
