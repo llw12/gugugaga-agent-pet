@@ -104,6 +104,22 @@ npm --prefix apps/desktop run tauri dev
 npm --prefix apps/desktop run build
 ```
 
+## Tests
+
+Install backend dependencies first:
+
+```powershell
+python -m pip install -e apps/agent-server
+```
+
+Run backend safety tests:
+
+```powershell
+python -m pytest apps/agent-server/tests
+```
+
+The current tests cover permission gating, read-only tool execution, unknown tool rejection, medium-risk rejection, and approval request state validation. They do not execute shell commands or call any LLM.
+
 ## Phase 4 WebSocket Flow
 
 Frontend sends:

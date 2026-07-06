@@ -1,17 +1,21 @@
 [project]
 name = "gugugaga-agent-server"
 version = "0.4.0"
-description = "Phase 3 FastAPI and WebSocket backend with read-only computer status tools"
+description = "Phase 4 FastAPI backend with read-only tools, audit logging, and approval skeletons"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.115.0",
   "psutil>=6.0.0",
+  "pytest>=8.0.0",
   "uvicorn[standard]>=0.30.0"
 ]
 
 [tool.uvicorn]
 host = "127.0.0.1"
 port = 8765
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [build-system]
 requires = ["setuptools>=68"]

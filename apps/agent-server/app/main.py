@@ -92,6 +92,7 @@ def record_approval_result(request_id: str, approved: bool) -> tuple[bool, str]:
     if approval.expires_at < time.time():
         approval.handled = True
         log_event("approval_result_rejected", {"request_id": request_id, "reason": "expired"})
+        pending_approvals.pop(request_id, None)
         return False, "确认请求已过期。"
 
     approval.handled = True
