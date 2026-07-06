@@ -53,7 +53,7 @@ npm --prefix apps/desktop install
 Install backend dependencies:
 
 ```powershell
-python -m pip install -e apps/agent-server
+python -m pip install -e "apps/agent-server[dev]"
 ```
 
 Running the native Tauri window also requires Rust and Cargo.
@@ -104,21 +104,33 @@ npm --prefix apps/desktop run tauri dev
 npm --prefix apps/desktop run build
 ```
 
-## Tests
-
-Install backend dependencies first:
+Run all current checks from the repository root:
 
 ```powershell
-python -m pip install -e apps/agent-server
+npm run check
+```
+
+## Tests
+
+Install backend dev dependencies first:
+
+```powershell
+python -m pip install -e "apps/agent-server[dev]"
 ```
 
 Run backend safety tests:
 
 ```powershell
+npm run test:agent
+```
+
+The direct pytest command is:
+
+```powershell
 python -m pytest apps/agent-server/tests
 ```
 
-The current tests cover permission gating, read-only tool execution, unknown tool rejection, medium-risk rejection, and approval request state validation. They do not execute shell commands or call any LLM.
+The current tests cover permission gating, read-only tool execution, unknown tool rejection, medium-risk rejection, and approval request state validation. Tests set `GUGUGAGA_DB_PATH` to a temporary sqlite file so they do not write to the real local audit database. They do not execute shell commands or call any LLM.
 
 ## Phase 4 WebSocket Flow
 

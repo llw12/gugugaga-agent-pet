@@ -1,12 +1,22 @@
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parents[2] / "gugugaga.sqlite3"
+DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "gugugaga.sqlite3"
+DB_PATH = Path(os.environ.get("GUGUGAGA_DB_PATH", DEFAULT_DB_PATH))
 
 
-def init_db(db_path: Path = DB_PATH) -> None:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as connection:
+def get_db_path() -> Path:
+    configured_path = os.environ.get("GUGUGAGA_DB_PATH")
+    if configured_path:
+        return Path(configured_path).expanduser()
+    return DB_PATH
+
+
+def init_db(db_path: Path | None = None) -> None:
+    resolved_path = db_path or get_db_path()
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(resolved_path) as connection:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS audit_logs (
