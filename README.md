@@ -4,7 +4,7 @@ Gugugaga Agent Pet is a Windows desktop pet project. The long-term goal is a sma
 
 ## Current Phase
 
-Phase 4: Tauri + React desktop pet frontend connected to a local FastAPI backend with read-only computer status tools, audit logging, and approval dialog skeletons.
+Phase 5: Tauri + React desktop pet frontend connected to a local FastAPI backend with read-only computer status tools, audit logging, approval dialog skeletons, and a fixed whitelist command execution skeleton.
 
 Implemented now:
 
@@ -32,12 +32,13 @@ Safety framework skeleton prepared:
 - WebSocket supports `approval_required` and `approval_result` for a simulated medium-risk request.
 - Approval requests are tracked in an in-memory pending map with request id, expiry, and handled-state validation.
 - The frontend includes a confirmation dialog skeleton for approval events.
-- Phase 5 shell whitelist files are present as configuration placeholders only. They are not wired to any execution path.
+- Phase 5 command whitelist reads only fixed entries from `commands.local.json` or `commands.example.json`.
 
-Not implemented in Phase 4:
+Not implemented in Phase 5:
 
 - LLM integration
-- shell command execution
+- arbitrary shell command execution
+- shell string command execution
 - medium/high/blocked tool execution
 - real approval workflow that executes tools after confirmation
 - PyInstaller or Tauri sidecar packaging
@@ -132,7 +133,7 @@ python -m pytest apps/agent-server/tests
 
 The current tests cover permission gating, read-only tool execution, unknown tool rejection, medium-risk rejection, and approval request state validation. Tests set `GUGUGAGA_DB_PATH` to a temporary sqlite file so they do not write to the real local audit database. They do not execute shell commands or call any LLM.
 
-## Phase 4 WebSocket Flow
+## Phase 5 WebSocket Flow
 
 Frontend sends:
 
@@ -185,22 +186,45 @@ These APIs are read-only. They do not execute shell commands, delete files, kill
 
 ## Safety Rules
 
-The current backend only registers two read-only tools:
+The current backend registers these always-on read-only tools:
 
 - `system.get_overview` with `safe` risk
 - `process.top` with `low` risk
 
-The registry also contains `mock.medium_approval` only to demonstrate approval UI. The permission layer refuses `medium`, `high`, and `blocked` tools for now. There is still no LLM integration, arbitrary shell execution, file deletion, process killing, registry editing, payment flow, password input, or UI automation.
+The registry also contains `mock.medium_approval` only to demonstrate approval UI. Phase 5 additionally allows explicitly configured `command.<name>` tools from the command whitelist only when their risk is `low` and their command is an array. The permission layer refuses `medium`, `high`, and `blocked` tools for now. There is still no LLM integration, arbitrary shell execution, file deletion, process killing, registry editing, payment flow, password input, or UI automation.
 
-## Phase 5 Whitelist Placeholder
+## Phase 5 Command Whitelist
 
-The repository includes a placeholder whitelist configuration at:
+The repository includes a default whitelist configuration at:
 
 ```text
 apps/agent-server/config/commands.example.json
 ```
 
-This file documents the future shape of whitelisted commands. The backend does not load it or execute anything from it yet. There is still no shell execution path in the application.
+For local overrides, create:
+
+```text
+apps/agent-server/config/commands.local.json
+```
+
+Only `commands.local.json` or `commands.example.json` are read. `commands.local.json` takes priority when present and is ignored by git.
+
+Every whitelisted command must use array form:
+
+```json
+{
+  "check_node": {
+    "cmd": ["node", "-v"],
+    "cwd": null,
+    "risk": "low",
+    "desc": "Read Node.js version."
+  }
+}
+```
+
+String commands such as `"node -v"` are rejected. Commands run with `shell=false`; the app still does not support arbitrary command text, pipes, redirects, globbing, or user-provided shell input. By default only `low` risk read-only commands can run from the whitelist. `medium`, `high`, and `blocked` commands are still rejected and audited.
+
+Whitelisted commands are exposed internally as tools named `command.<name>`, for example `command.check_node`. There is still no LLM integration and no path that lets a model choose arbitrary commands.
 
 ## Pet Assets
 

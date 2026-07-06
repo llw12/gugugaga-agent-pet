@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.security.audit_log import log_event
 from app.tools.registry import execute_tool
 
-app = FastAPI(title="Gugugaga Agent Mock Server", version="0.4.0")
+app = FastAPI(title="Gugugaga Agent Mock Server", version="0.5.0")
 APPROVAL_TTL_SECONDS = 300
 
 
@@ -37,7 +37,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "phase": "4"}
+    return {"status": "ok", "phase": "5"}
 
 
 @app.get("/api/system/overview")
@@ -106,7 +106,7 @@ def record_approval_result(request_id: str, approved: bool) -> tuple[bool, str]:
             "executed": False,
         },
     )
-    return True, "已记录确认结果。Phase 4 当前不会执行 medium/high/blocked 工具。"
+    return True, "已记录确认结果。Phase 5 当前不会执行 medium/high/blocked 工具。"
 
 
 def should_query_system(text: str) -> bool:
@@ -153,7 +153,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 continue
 
             if message_type != "user_message":
-                await send_event(websocket, "assistant_message", {"text": "Phase 4 mock 只处理 user_message 和 approval_result。"})
+                await send_event(websocket, "assistant_message", {"text": "Phase 5 mock 只处理 user_message 和 approval_result。"})
                 continue
 
             text = str(message.get("payload", {}).get("text", ""))
@@ -185,7 +185,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         "title": "需要确认",
                         "risk_level": approval.risk_level,
                         "tool": approval.tool,
-                        "summary": "这是 Phase 4 的 medium 风险工具审批演示。",
+                        "summary": "这是 Phase 5 的 medium 风险工具审批演示。",
                         "detail": "无论你点击取消还是记录确认，当前阶段都只记录审计日志，不会执行任何 medium/high/blocked 工具。",
                     },
                 )
@@ -207,6 +207,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             await asyncio.sleep(0.25)
             await send_event(websocket, "pet_state", {"state": "success"})
             await asyncio.sleep(0.1)
-            await send_event(websocket, "final", {"text": "Phase 4 mock 流程完成。"})
+            await send_event(websocket, "final", {"text": "Phase 5 mock 流程完成。"})
     except WebSocketDisconnect:
         return

@@ -1,15 +1,15 @@
 {
-  "_note": "Phase 5 whitelist placeholder only. The backend does not execute shell commands yet.",
+  "_note": "Phase 5 fixed command whitelist. Commands must be arrays and are executed with shell=false.",
   "check_node": {
     "cmd": ["node", "-v"],
     "cwd": null,
     "risk": "low",
-    "desc": "Read Node.js version. Not wired to execution in the current phase."
+    "desc": "Read Node.js version."
   },
   "check_npm": {
     "cmd": ["npm", "-v"],
     "cwd": null,
     "risk": "low",
-    "desc": "Read npm version. Not wired to execution in the current phase."
+    "desc": "Read npm version."
   }
 }

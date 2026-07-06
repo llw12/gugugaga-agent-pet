@@ -7,6 +7,7 @@ import psutil
 
 from app.security.permissions import RiskLevel, ensure_allowed
 from app.security.audit_log import log_event, log_tool_call
+from app.tools.command_whitelist import COMMAND_TOOL_PREFIX, execute_whitelisted_command
 
 ToolHandler = Callable[[], Any]
 
@@ -107,6 +108,9 @@ TOOLS: dict[str, ToolDefinition] = {
 
 
 def execute_tool(name: str) -> Any:
+    if name.startswith(COMMAND_TOOL_PREFIX):
+        return execute_whitelisted_command(name.removeprefix(COMMAND_TOOL_PREFIX))
+
     tool = TOOLS.get(name)
     if tool is None:
         detail = {"tool": name, "reason": "unknown tool"}
