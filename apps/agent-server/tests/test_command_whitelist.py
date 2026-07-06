@@ -23,6 +23,10 @@ def write_local_commands(config_dir, commands):
     (config_dir / "commands.local.json").write_text(json.dumps(commands), encoding="utf-8")
 
 
+def write_example_commands(config_dir, commands):
+    (config_dir / "commands.example.json").write_text(json.dumps(commands), encoding="utf-8")
+
+
 def fetch_tool_call_status(tool_name: str) -> str:
     with sqlite3.connect(get_db_path()) as connection:
         row = connection.execute(
@@ -53,6 +57,32 @@ def test_whitelisted_command_executes(command_config_dir):
     assert fetch_tool_call_status("command.python_version") == "success"
 
 
+def test_missing_local_whitelist_rejects_command(command_config_dir):
+    with pytest.raises(CommandNotAllowed):
+        execute_tool("command.check_node")
+
+    assert fetch_tool_call_status("command.check_node") == "rejected"
+
+
+def test_example_whitelist_is_not_loaded_at_runtime(command_config_dir):
+    write_example_commands(
+        command_config_dir,
+        {
+            "check_node": {
+                "cmd": [sys.executable, "-c", "print('example')"],
+                "cwd": None,
+                "risk": "low",
+                "desc": "Example only.",
+            }
+        },
+    )
+
+    with pytest.raises(CommandNotAllowed):
+        execute_tool("command.check_node")
+
+    assert fetch_tool_call_status("command.check_node") == "rejected"
+
+
 def test_command_not_in_whitelist_is_rejected(command_config_dir):
     write_local_commands(command_config_dir, {})
 
@@ -60,6 +90,34 @@ def test_command_not_in_whitelist_is_rejected(command_config_dir):
         execute_tool("command.not_listed")
 
     assert fetch_tool_call_status("command.not_listed") == "rejected"
+
+
+def test_long_stdout_and_stderr_are_truncated(command_config_dir):
+    max_chars = command_whitelist.OUTPUT_MAX_CHARS
+    write_local_commands(
+        command_config_dir,
+        {
+            "long_output": {
+                "cmd": [
+                    sys.executable,
+                    "-c",
+                    "import sys; print('o' * 21000); print('e' * 21000, file=sys.stderr)",
+                ],
+                "cwd": None,
+                "risk": "low",
+                "desc": "Emit long output.",
+            }
+        },
+    )
+
+    result = execute_tool("command.long_output")
+
+    assert result["returncode"] == 0
+    assert len(result["stdout"]) == max_chars
+    assert len(result["stderr"]) == max_chars
+    assert result["stdout_truncated"] is True
+    assert result["stderr_truncated"] is True
+    assert fetch_tool_call_status("command.long_output") == "success"
 
 
 def test_shell_string_command_is_rejected(command_config_dir):
@@ -79,6 +137,25 @@ def test_shell_string_command_is_rejected(command_config_dir):
         execute_tool("command.shell_string")
 
     assert fetch_tool_call_status("command.shell_string") == "rejected"
+
+
+def test_non_null_cwd_is_rejected(command_config_dir):
+    write_local_commands(
+        command_config_dir,
+        {
+            "custom_cwd": {
+                "cmd": [sys.executable, "-c", "print('nope')"],
+                "cwd": ".",
+                "risk": "low",
+                "desc": "Custom cwd is disabled in this phase.",
+            }
+        },
+    )
+
+    with pytest.raises(CommandRejected):
+        execute_tool("command.custom_cwd")
+
+    assert fetch_tool_call_status("command.custom_cwd") == "rejected"
 
 
 def test_medium_risk_command_is_rejected(command_config_dir):

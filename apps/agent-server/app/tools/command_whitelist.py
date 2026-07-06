@@ -9,9 +9,9 @@ from app.security.permissions import PermissionDenied, RiskLevel, ensure_allowed
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 LOCAL_COMMANDS_FILE = "commands.local.json"
-EXAMPLE_COMMANDS_FILE = "commands.example.json"
 COMMAND_TOOL_PREFIX = "command."
 COMMAND_TIMEOUT_SECONDS = 10
+OUTPUT_MAX_CHARS = 20000
 
 
 class CommandNotAllowed(RuntimeError):
@@ -32,14 +32,14 @@ class WhitelistedCommand:
 
 
 def get_config_path() -> Path:
-    local_path = CONFIG_DIR / LOCAL_COMMANDS_FILE
-    if local_path.exists():
-        return local_path
-    return CONFIG_DIR / EXAMPLE_COMMANDS_FILE
+    return CONFIG_DIR / LOCAL_COMMANDS_FILE
 
 
 def load_commands() -> dict[str, WhitelistedCommand]:
     config_path = get_config_path()
+    if not config_path.exists():
+        return {}
+
     with config_path.open("r", encoding="utf-8") as config_file:
         raw_commands = json.load(config_file)
 
@@ -73,9 +73,15 @@ def validate_command(command: WhitelistedCommand) -> list[str]:
         raise CommandRejected("whitelisted commands must use a non-empty array command")
     if not all(isinstance(part, str) and part for part in command.cmd):
         raise CommandRejected("whitelisted command arrays must contain only non-empty strings")
-    if command.cwd is not None and not isinstance(command.cwd, str):
-        raise CommandRejected("whitelisted command cwd must be null or a string")
+    if command.cwd is not None:
+        raise CommandRejected("whitelisted command cwd must be null in the current phase")
     return command.cmd
+
+
+def truncate_output(value: str) -> tuple[str, bool]:
+    if len(value) <= OUTPUT_MAX_CHARS:
+        return value, False
+    return value[:OUTPUT_MAX_CHARS], True
 
 
 def execute_whitelisted_command(name: str) -> dict[str, Any]:
@@ -100,7 +106,7 @@ def execute_whitelisted_command(name: str) -> dict[str, Any]:
     try:
         completed = subprocess.run(
             command_array,
-            cwd=command.cwd,
+            cwd=None,
             capture_output=True,
             text=True,
             timeout=COMMAND_TIMEOUT_SECONDS,
@@ -113,13 +119,27 @@ def execute_whitelisted_command(name: str) -> dict[str, Any]:
         log_tool_call(tool_name, command.risk_level.value, "failed", detail)
         raise
 
+    stdout, stdout_truncated = truncate_output(completed.stdout)
+    stderr, stderr_truncated = truncate_output(completed.stderr)
     result = {
         "name": name,
         "command": command_array,
         "returncode": completed.returncode,
-        "stdout": completed.stdout,
-        "stderr": completed.stderr,
+        "stdout": stdout,
+        "stderr": stderr,
+        "stdout_truncated": stdout_truncated,
+        "stderr_truncated": stderr_truncated,
     }
     status = "success" if completed.returncode == 0 else "failed"
-    log_tool_call(tool_name, command.risk_level.value, status, {"tool": tool_name, "returncode": completed.returncode})
+    log_tool_call(
+        tool_name,
+        command.risk_level.value,
+        status,
+        {
+            "tool": tool_name,
+            "returncode": completed.returncode,
+            "stdout_truncated": stdout_truncated,
+            "stderr_truncated": stderr_truncated,
+        },
+    )
     return result

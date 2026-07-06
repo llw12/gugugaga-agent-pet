@@ -32,7 +32,7 @@ Safety framework skeleton prepared:
 - WebSocket supports `approval_required` and `approval_result` for a simulated medium-risk request.
 - Approval requests are tracked in an in-memory pending map with request id, expiry, and handled-state validation.
 - The frontend includes a confirmation dialog skeleton for approval events.
-- Phase 5 command whitelist reads only fixed entries from `commands.local.json` or `commands.example.json`.
+- Phase 5 command whitelist reads only fixed entries from `commands.local.json`.
 
 Not implemented in Phase 5:
 
@@ -195,19 +195,19 @@ The registry also contains `mock.medium_approval` only to demonstrate approval U
 
 ## Phase 5 Command Whitelist
 
-The repository includes a default whitelist configuration at:
+The repository includes an example whitelist template at:
 
 ```text
 apps/agent-server/config/commands.example.json
 ```
 
-For local overrides, create:
+This file is documentation only and is not loaded at runtime. To enable any command, copy the template to:
 
 ```text
 apps/agent-server/config/commands.local.json
 ```
 
-Only `commands.local.json` or `commands.example.json` are read. `commands.local.json` takes priority when present and is ignored by git.
+Only `commands.local.json` is read at runtime. If it does not exist, the command whitelist is empty and every `command.<name>` tool is rejected. `commands.local.json` is ignored by git so local command choices are explicit per machine.
 
 Every whitelisted command must use array form:
 
@@ -222,7 +222,9 @@ Every whitelisted command must use array form:
 }
 ```
 
-String commands such as `"node -v"` are rejected. Commands run with `shell=false`; the app still does not support arbitrary command text, pipes, redirects, globbing, or user-provided shell input. By default only `low` risk read-only commands can run from the whitelist. `medium`, `high`, and `blocked` commands are still rejected and audited.
+String commands such as `"node -v"` are rejected. Commands run with `shell=false`; the app still does not support arbitrary command text, pipes, redirects, globbing, or user-provided shell input. By default only `low` risk read-only commands can run from the whitelist. `medium`, `high`, and `blocked` commands are still rejected and audited. Custom `cwd` is disabled for now; whitelist entries must use `"cwd": null`.
+
+Command output is bounded. `stdout` and `stderr` are each truncated after 20,000 characters and returned with `stdout_truncated` / `stderr_truncated` markers.
 
 Whitelisted commands are exposed internally as tools named `command.<name>`, for example `command.check_node`. There is still no LLM integration and no path that lets a model choose arbitrary commands.
 
