@@ -7,6 +7,7 @@
     "dev:agent": "python -m uvicorn app.main:app --app-dir apps/agent-server --host 127.0.0.1 --port 8765",
     "build:desktop": "npm --prefix apps/desktop run build",
     "check:alpha": "node scripts/check-alpha.mjs",
+    "check-alpha:warn": "node scripts/check-alpha.mjs --warn-only",
     "test:agent": "python -m pytest apps/agent-server/tests",
     "check": "npm run build:desktop && npm run check:alpha && npm run test:agent",
     "tauri:dev": "npm --prefix apps/desktop run tauri dev",

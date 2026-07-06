@@ -230,6 +230,12 @@ Check alpha transparency:
 npm run check:alpha
 ```
 
+`check:alpha` is strict: if any PNG appears fully opaque or cannot be inspected, the script sets a non-zero exit code so `npm run check` fails. To inspect assets without failing the command, use:
+
+```powershell
+npm run check-alpha:warn
+```
+
 ## Next Phase
 
 - Persist approval state if needed beyond in-memory demo sessions.

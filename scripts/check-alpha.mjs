@@ -127,6 +127,7 @@ function hasTransparentPixels(path) {
 }
 
 const files = listPngFiles(root);
+const warnOnly = process.argv.includes("--warn-only");
 let warnings = 0;
 
 for (const file of files) {
@@ -142,3 +143,6 @@ for (const file of files) {
 }
 
 console.log(`Checked ${files.length} PNG files. ${warnings} warning(s).`);
+if (warnings > 0 && !warnOnly) {
+  process.exitCode = 1;
+}
