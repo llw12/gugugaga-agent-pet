@@ -161,6 +161,8 @@ For status questions, the `working` step calls only read-only psutil APIs throug
 
 The current WebSocket chat flow does not automatically trigger `command.<name>` tools. Whitelisted commands are available only at the tool layer and in backend tests; chat text cannot ask the app to run a command.
 
+Phase 5 has only two fixed chat intent demos: `node版本` maps to `command.check_node`, and `npm版本` maps to `command.check_npm`. Direct chat text such as `command.check_node` or arbitrary command text is ignored by the command layer and will not execute.
+
 For confirmation testing, send a chat message containing `确认`, `approval`, or `medium`. The backend sends `approval_required` for a simulated `mock.medium_approval` tool. The frontend shows a confirmation dialog and sends `approval_result`, but the backend only records the result and does not execute any medium-risk tool.
 
 Approval results are validated before being accepted:
@@ -229,6 +231,8 @@ Every whitelisted command must use array form:
 String commands such as `"node -v"` are rejected. Commands run with `shell=false`; the app still does not support arbitrary command text, pipes, redirects, globbing, or user-provided shell input. By default only `low` risk read-only commands can run from the whitelist. `medium`, `high`, and `blocked` commands are still rejected and audited. Custom `cwd` is disabled for now; whitelist entries must use `"cwd": null`.
 
 Command output is bounded. `stdout` and `stderr` are each truncated after 20,000 characters and returned with `stdout_truncated` / `stderr_truncated` markers.
+
+Whitelisted commands run with a restricted environment. The backend passes only a minimal set of lookup-related variables such as `PATH` and Windows process lookup helpers; environment variables whose names include `API_KEY`, `TOKEN`, `SECRET`, or `PASSWORD` are not passed to child processes.
 
 If `commands.local.json` has invalid JSON, a non-object top-level value, or a non-object command entry, command execution is rejected and a `command_config_error` audit event is written. Invalid risk values are treated as `blocked`.
 

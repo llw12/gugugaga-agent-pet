@@ -8,6 +8,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.security.audit_log import log_event
+from app.security.permissions import PermissionDenied
+from app.tools.command_whitelist import CommandConfigError, CommandNotAllowed, CommandRejected
 from app.tools.registry import execute_tool
 
 app = FastAPI(title="Gugugaga Agent Mock Server", version="0.5.0")
@@ -119,6 +121,15 @@ def should_request_approval(text: str) -> bool:
     return any(keyword in normalized for keyword in ["确认", "approval", "medium"])
 
 
+def get_fixed_command_intent(text: str) -> str | None:
+    normalized = text.lower().replace(" ", "")
+    if "node版本" in normalized:
+        return "check_node"
+    if "npm版本" in normalized:
+        return "check_npm"
+    return None
+
+
 def build_system_summary(overview: dict[str, Any], processes: list[dict[str, Any]]) -> str:
     memory = overview["memory"]
     disk = overview["disk"]
@@ -128,6 +139,14 @@ def build_system_summary(overview: dict[str, Any], processes: list[dict[str, Any
         f"内存 {memory['percent']}%，磁盘 {disk['percent']}%。"
         f"当前资源占用靠前的进程有：{top_names}。"
     )
+
+
+def build_command_summary(name: str, result: dict[str, Any]) -> str:
+    output = (result.get("stdout") or result.get("stderr") or "").strip()
+    if not output:
+        output = f"命令返回码 {result.get('returncode')}，没有输出。"
+    truncated_note = " 输出较长，已截断。" if result.get("stdout_truncated") or result.get("stderr_truncated") else ""
+    return f"{name} 已执行：{output}{truncated_note}"
 
 
 @app.websocket("/ws")
@@ -164,6 +183,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             await send_event(websocket, "pet_state", {"state": "working"})
             await asyncio.sleep(0.45)
 
+            fixed_command = get_fixed_command_intent(text)
+
             if should_request_approval(text):
                 approval = create_pending_approval("mock.medium_approval", "medium")
                 await asyncio.to_thread(
@@ -191,6 +212,23 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 )
                 await send_event(websocket, "assistant_message", {"text": "我发起了一个模拟确认请求，但不会执行风险工具。"})
                 continue
+            elif fixed_command is not None:
+                try:
+                    command_result = await asyncio.to_thread(execute_tool, f"command.{fixed_command}")
+                except CommandNotAllowed:
+                    await send_event(
+                        websocket,
+                        "assistant_message",
+                        {"text": f"白名单命令 command.{fixed_command} 未启用。请先在本机 commands.local.json 中配置。"},
+                    )
+                except (CommandConfigError, CommandRejected, PermissionDenied):
+                    await send_event(
+                        websocket,
+                        "assistant_message",
+                        {"text": f"白名单命令 command.{fixed_command} 当前不可执行，请检查本机配置和风险等级。"},
+                    )
+                else:
+                    await send_event(websocket, "assistant_message", {"text": build_command_summary(fixed_command, command_result)})
             elif should_query_system(text):
                 overview, processes = await asyncio.gather(
                     asyncio.to_thread(execute_tool, "system.get_overview"),

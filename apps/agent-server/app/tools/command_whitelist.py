@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,8 @@ LOCAL_COMMANDS_FILE = "commands.local.json"
 COMMAND_TOOL_PREFIX = "command."
 COMMAND_TIMEOUT_SECONDS = 10
 OUTPUT_MAX_CHARS = 20000
+SENSITIVE_ENV_MARKERS = ("API_KEY", "TOKEN", "SECRET", "PASSWORD")
+PASSTHROUGH_ENV_NAMES = ("PATH", "PATHEXT", "SYSTEMROOT", "WINDIR")
 
 
 class CommandNotAllowed(RuntimeError):
@@ -110,6 +113,24 @@ def truncate_output(value: str) -> tuple[str, bool]:
     return value[:OUTPUT_MAX_CHARS], True
 
 
+def is_sensitive_env_name(name: str) -> bool:
+    normalized = name.upper()
+    return any(marker in normalized for marker in SENSITIVE_ENV_MARKERS)
+
+
+def build_command_env(source_env: dict[str, str] | None = None) -> dict[str, str]:
+    source = source_env or os.environ
+    allowed_names = set(PASSTHROUGH_ENV_NAMES)
+    command_env: dict[str, str] = {}
+    for name, value in source.items():
+        normalized = name.upper()
+        if normalized in allowed_names and not is_sensitive_env_name(normalized):
+            command_env[name] = value
+            if normalized == "PATH":
+                command_env.setdefault("PATH", value)
+    return command_env
+
+
 def execute_whitelisted_command(name: str) -> dict[str, Any]:
     tool_name = f"{COMMAND_TOOL_PREFIX}{name}"
     try:
@@ -144,6 +165,7 @@ def execute_whitelisted_command(name: str) -> dict[str, Any]:
             timeout=COMMAND_TIMEOUT_SECONDS,
             shell=False,
             check=False,
+            env=build_command_env(),
         )
     except Exception as error:
         detail = {"tool": tool_name, "error": type(error).__name__, "message": str(error)}

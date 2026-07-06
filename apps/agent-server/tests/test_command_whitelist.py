@@ -71,6 +71,56 @@ def test_whitelisted_command_executes(command_config_dir):
     assert fetch_tool_call_status("command.python_version") == "success"
 
 
+def test_sensitive_env_vars_are_not_visible_to_child_process(command_config_dir, monkeypatch):
+    monkeypatch.setenv("GUGUGAGA_TEST_SECRET", "secret-value")
+    monkeypatch.setenv("GUGUGAGA_TEST_TOKEN", "token-value")
+    write_local_commands(
+        command_config_dir,
+        {
+            "env_probe": {
+                "cmd": [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import os; "
+                        "print(os.getenv('GUGUGAGA_TEST_SECRET')); "
+                        "print(os.getenv('GUGUGAGA_TEST_TOKEN'))"
+                    ),
+                ],
+                "cwd": None,
+                "risk": "low",
+                "desc": "Probe child process environment.",
+            }
+        },
+    )
+
+    result = execute_tool("command.env_probe")
+
+    assert result["returncode"] == 0
+    assert result["stdout"].splitlines() == ["None", "None"]
+    assert fetch_tool_call_status("command.env_probe") == "success"
+
+
+def test_path_is_preserved_so_executable_lookup_still_works(command_config_dir):
+    write_local_commands(
+        command_config_dir,
+        {
+            "python_from_path": {
+                "cmd": ["python", "-c", "print('path-ok')"],
+                "cwd": None,
+                "risk": "low",
+                "desc": "Resolve Python from PATH.",
+            }
+        },
+    )
+
+    result = execute_tool("command.python_from_path")
+
+    assert result["returncode"] == 0
+    assert result["stdout"].strip() == "path-ok"
+    assert fetch_tool_call_status("command.python_from_path") == "success"
+
+
 def test_missing_local_whitelist_rejects_command(command_config_dir):
     with pytest.raises(CommandNotAllowed):
         execute_tool("command.check_node")
