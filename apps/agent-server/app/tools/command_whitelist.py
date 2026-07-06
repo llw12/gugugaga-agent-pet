@@ -22,6 +22,10 @@ class CommandRejected(RuntimeError):
     pass
 
 
+class CommandConfigError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class WhitelistedCommand:
     name: str
@@ -35,20 +39,42 @@ def get_config_path() -> Path:
     return CONFIG_DIR / LOCAL_COMMANDS_FILE
 
 
+def log_config_error(message: str) -> None:
+    log_event(
+        "command_config_error",
+        {
+            "config": str(get_config_path()),
+            "reason": message,
+        },
+    )
+
+
 def load_commands() -> dict[str, WhitelistedCommand]:
     config_path = get_config_path()
     if not config_path.exists():
         return {}
 
-    with config_path.open("r", encoding="utf-8") as config_file:
-        raw_commands = json.load(config_file)
+    try:
+        with config_path.open("r", encoding="utf-8") as config_file:
+            raw_commands = json.load(config_file)
+    except json.JSONDecodeError as error:
+        message = f"invalid JSON in {LOCAL_COMMANDS_FILE}: {error.msg}"
+        log_config_error(message)
+        raise CommandConfigError(message) from error
+
+    if not isinstance(raw_commands, dict):
+        message = f"{LOCAL_COMMANDS_FILE} must contain a JSON object"
+        log_config_error(message)
+        raise CommandConfigError(message)
 
     commands: dict[str, WhitelistedCommand] = {}
     for name, value in raw_commands.items():
         if name.startswith("_"):
             continue
         if not isinstance(value, dict):
-            continue
+            message = f"command entry {name!r} must be an object"
+            log_config_error(message)
+            raise CommandConfigError(message)
 
         risk = value.get("risk", RiskLevel.BLOCKED.value)
         try:
@@ -86,7 +112,13 @@ def truncate_output(value: str) -> tuple[str, bool]:
 
 def execute_whitelisted_command(name: str) -> dict[str, Any]:
     tool_name = f"{COMMAND_TOOL_PREFIX}{name}"
-    commands = load_commands()
+    try:
+        commands = load_commands()
+    except CommandConfigError as error:
+        detail = {"tool": tool_name, "reason": str(error)}
+        log_tool_call(tool_name, RiskLevel.BLOCKED.value, "rejected", detail)
+        raise
+
     command = commands.get(name)
     if command is None:
         detail = {"tool": tool_name, "reason": "command is not whitelisted"}

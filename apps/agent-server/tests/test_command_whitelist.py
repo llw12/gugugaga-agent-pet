@@ -7,7 +7,7 @@ import pytest
 from app.security.permissions import PermissionDenied
 from app.storage.db import get_db_path
 from app.tools import command_whitelist
-from app.tools.command_whitelist import CommandNotAllowed, CommandRejected
+from app.tools.command_whitelist import CommandConfigError, CommandNotAllowed, CommandRejected
 from app.tools.registry import execute_tool
 
 
@@ -23,6 +23,10 @@ def write_local_commands(config_dir, commands):
     (config_dir / "commands.local.json").write_text(json.dumps(commands), encoding="utf-8")
 
 
+def write_raw_local_commands(config_dir, content: str):
+    (config_dir / "commands.local.json").write_text(content, encoding="utf-8")
+
+
 def write_example_commands(config_dir, commands):
     (config_dir / "commands.example.json").write_text(json.dumps(commands), encoding="utf-8")
 
@@ -32,6 +36,16 @@ def fetch_tool_call_status(tool_name: str) -> str:
         row = connection.execute(
             "SELECT status FROM tool_calls WHERE tool_name = ? ORDER BY id DESC LIMIT 1",
             (tool_name,),
+        ).fetchone()
+    assert row is not None
+    return row[0]
+
+
+def fetch_audit_event(event_type: str) -> str:
+    with sqlite3.connect(get_db_path()) as connection:
+        row = connection.execute(
+            "SELECT event_type FROM audit_logs WHERE event_type = ? ORDER BY id DESC LIMIT 1",
+            (event_type,),
         ).fetchone()
     assert row is not None
     return row[0]
@@ -83,6 +97,16 @@ def test_example_whitelist_is_not_loaded_at_runtime(command_config_dir):
     assert fetch_tool_call_status("command.check_node") == "rejected"
 
 
+def test_invalid_local_json_rejects_and_writes_audit(command_config_dir):
+    write_raw_local_commands(command_config_dir, "{not valid json")
+
+    with pytest.raises(CommandConfigError):
+        execute_tool("command.check_node")
+
+    assert fetch_tool_call_status("command.check_node") == "rejected"
+    assert fetch_audit_event("command_config_error") == "command_config_error"
+
+
 def test_command_not_in_whitelist_is_rejected(command_config_dir):
     write_local_commands(command_config_dir, {})
 
@@ -90,6 +114,41 @@ def test_command_not_in_whitelist_is_rejected(command_config_dir):
         execute_tool("command.not_listed")
 
     assert fetch_tool_call_status("command.not_listed") == "rejected"
+
+
+def test_non_object_command_entry_is_config_error(command_config_dir):
+    write_local_commands(
+        command_config_dir,
+        {
+            "_note": "metadata strings remain allowed for comments",
+            "bad_entry": ["not", "an", "object"],
+        },
+    )
+
+    with pytest.raises(CommandConfigError):
+        execute_tool("command.bad_entry")
+
+    assert fetch_tool_call_status("command.bad_entry") == "rejected"
+    assert fetch_audit_event("command_config_error") == "command_config_error"
+
+
+def test_invalid_risk_is_treated_as_blocked(command_config_dir):
+    write_local_commands(
+        command_config_dir,
+        {
+            "invalid_risk": {
+                "cmd": [sys.executable, "-c", "print('nope')"],
+                "cwd": None,
+                "risk": "surprise",
+                "desc": "Invalid risk should be blocked.",
+            }
+        },
+    )
+
+    with pytest.raises(PermissionDenied):
+        execute_tool("command.invalid_risk")
+
+    assert fetch_tool_call_status("command.invalid_risk") == "rejected"
 
 
 def test_long_stdout_and_stderr_are_truncated(command_config_dir):
