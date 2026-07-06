@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -143,10 +144,13 @@ def build_system_summary(overview: dict[str, Any], processes: list[dict[str, Any
 
 def build_command_summary(name: str, result: dict[str, Any]) -> str:
     output = (result.get("stdout") or result.get("stderr") or "").strip()
+    returncode = result.get("returncode")
     if not output:
-        output = f"命令返回码 {result.get('returncode')}，没有输出。"
+        output = "没有输出。"
     truncated_note = " 输出较长，已截断。" if result.get("stdout_truncated") or result.get("stderr_truncated") else ""
-    return f"{name} 已执行：{output}{truncated_note}"
+    if returncode == 0:
+        return f"{name} 执行成功：{output}{truncated_note}"
+    return f"{name} 执行完成但返回失败码 {returncode}：{output}{truncated_note}"
 
 
 @app.websocket("/ws")
@@ -226,6 +230,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         websocket,
                         "assistant_message",
                         {"text": f"白名单命令 command.{fixed_command} 当前不可执行，请检查本机配置和风险等级。"},
+                    )
+                except (FileNotFoundError, OSError, subprocess.TimeoutExpired, Exception):
+                    await send_event(
+                        websocket,
+                        "assistant_message",
+                        {"text": "命令执行失败，已写入审计日志。"},
                     )
                 else:
                     await send_event(websocket, "assistant_message", {"text": build_command_summary(fixed_command, command_result)})

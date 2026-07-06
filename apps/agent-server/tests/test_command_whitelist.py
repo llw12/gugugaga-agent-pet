@@ -123,6 +123,10 @@ def test_build_command_env_preserves_lookup_vars_and_filters_sensitive_values():
     assert "PLAIN_VALUE" not in command_env
 
 
+def test_build_command_env_empty_source_does_not_fall_back_to_process_env():
+    assert command_whitelist.build_command_env({}) == {}
+
+
 def test_path_is_preserved_so_executable_lookup_still_works(command_config_dir):
     write_local_commands(
         command_config_dir,

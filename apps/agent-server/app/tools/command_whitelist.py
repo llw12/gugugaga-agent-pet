@@ -119,7 +119,7 @@ def is_sensitive_env_name(name: str) -> bool:
 
 
 def build_command_env(source_env: dict[str, str] | None = None) -> dict[str, str]:
-    source = source_env or os.environ
+    source = os.environ if source_env is None else source_env
     allowed_names = set(PASSTHROUGH_ENV_NAMES)
     command_env: dict[str, str] = {}
     for name, value in source.items():
